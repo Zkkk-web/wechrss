@@ -18,12 +18,14 @@ from socketserver import ThreadingMixIn
 from wsgiref.simple_server import make_server, WSGIRequestHandler, WSGIServer
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from dotenv import load_dotenv
 
 from service import AppDB, CredentialStore, Scheduler, SyncService
 from weread_auth import LoginManager, WeReadAuthClient
 from wechat_mp_fetcher import FetcherError
 
 BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 DATA_DIR = Path(os.getenv("WECHAT_MP_DATA", str(BASE_DIR / "data"))).resolve()
 DB_PATH = Path(os.getenv("WECHAT_MP_DB", str(DATA_DIR / "wechat_mp.db"))).resolve()
 CREDENTIALS_PATH = Path(os.getenv("WECHAT_MP_CREDENTIALS", str(DATA_DIR / "credentials.json"))).resolve()
@@ -204,6 +206,11 @@ class WebApp:
         start_response(status, [("Content-Type", "application/json; charset=utf-8"), ("Content-Length", str(len(body)))])
         return [body]
 
+    @staticmethod
+    def _accepts_json(environ) -> bool:
+        accept = environ.get("HTTP_ACCEPT", "")
+        return "application/json" in accept
+
     def _require_csrf(self, form: dict[str, str]):
         if not hmac.compare_digest(form.get("csrf", ""), self.csrf_token):
             raise FetcherError("CSRF 校验失败，请刷新页面后重试")
@@ -304,6 +311,8 @@ class WebApp:
                 form = self._form(environ); self._require_csrf(form)
                 source_id = int(m.group(1))
                 resolved, failed = self.service.backfill_source_urls(source_id, limit=5)
+                if self._accepts_json(environ):
+                    return self._json(start_response, {"success": True, "resolved": resolved, "failed": failed})
                 msg = f"原文链接补全：成功 {resolved}，失败 {failed}；每次最多处理 5 篇"
                 return self._redirect(start_response, f"/sources/{source_id}?message={quote(msg)}")
 
@@ -334,6 +343,8 @@ class WebApp:
                 form = self._form(environ); self._require_csrf(form)
                 review_id = m.group(1)
                 url = self.service.resolve_article_url(review_id)
+                if self._accepts_json(environ):
+                    return self._json(start_response, {"success": True, "url": url, "review_id": review_id})
                 return self._redirect(
                     start_response,
                     f"/articles/{quote(review_id, safe='')}?message={quote('原文链接已补全：' + url)}",

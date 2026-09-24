@@ -62,6 +62,48 @@
     });
   });
 
+  document.querySelectorAll("form[data-resolve-url]").forEach((form) => {
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = form.querySelector('button[type="submit"], button:not([type])');
+      const originalLabel = button ? button.textContent.trim() : "";
+      if (button) {
+        button.disabled = true;
+        button.textContent = form.dataset.loadingLabel || "补全中…";
+      }
+      try {
+        const csrf = form.querySelector('input[name="csrf"]')?.value || "";
+        const response = await fetch(form.action, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams(new FormData(form)),
+        });
+        if (!response.ok) throw new Error("request failed");
+        const data = await response.json();
+        if (!data.success) throw new Error(data.message || "补全失败");
+        showToast("原文链接已补全");
+        if (form.dataset.resolveUrl === "single" && data.url) {
+          const actions = form.closest(".reader-actions");
+          if (actions) {
+            actions.innerHTML =
+              '<a class="button primary" href="' + data.url + '" target="_blank" rel="noreferrer">打开微信原文 <span aria-hidden="true">↗</span></a>' +
+              '<button class="button" type="button" data-copy="' + data.url + '"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="6.5" y="6.5" width="9" height="9" rx="1.5"/><path d="M4 13.5H3.5a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1V4"/></svg>复制链接</button>';
+          }
+        }
+      } catch (err) {
+        showToast("补全失败：" + (err.message || "未知错误"));
+        if (button) {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
+      }
+    });
+  });
+
   const loginPanel = document.querySelector("[data-login-panel]");
   if (loginPanel) {
     const active = new Set(["requesting", "waiting", "scanned", "exchanging", "initializing"]);
