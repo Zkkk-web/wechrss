@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ET
 
 import requests
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
 
 from article_identity import ArticleIdentityError, resolve_article_identity
 
@@ -574,6 +575,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    load_dotenv(Path(__file__).resolve().parent / ".env")
     args = build_parser().parse_args(argv)
     try:
         return int(args.func(args))
