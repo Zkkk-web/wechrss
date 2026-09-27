@@ -107,6 +107,7 @@
   const loginPanel = document.querySelector("[data-login-panel]");
   if (loginPanel) {
     const active = new Set(["requesting", "waiting", "scanned", "exchanging", "initializing"]);
+    let sawActive = false;
     const labels = {
       idle: "空闲",
       requesting: "正在生成",
@@ -168,13 +169,20 @@
         if (!response.ok) throw new Error("status request failed");
         const state = await response.json();
         const status = applyLoginState(state);
-        if (status === "success") {
-          setTimeout(() => {
-            window.location.href = "/settings?message=" + encodeURIComponent("扫码登录成功");
-          }, 700);
+        if (active.has(status)) {
+          sawActive = true;
+          setTimeout(pollLogin, 1200);
           return;
         }
-        if (active.has(status)) setTimeout(pollLogin, 1200);
+        if (status === "success") {
+          // 仅当本次页面会话确实经历过进行中状态时才跳转，避免读到残留终态导致无限刷新。
+          if (sawActive) {
+            setTimeout(() => {
+              window.location.href = "/settings?message=" + encodeURIComponent("扫码登录成功");
+            }, 700);
+          }
+          return;
+        }
       } catch (_) {
         setTimeout(pollLogin, 2500);
       }
