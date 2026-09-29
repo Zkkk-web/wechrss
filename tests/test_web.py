@@ -40,6 +40,23 @@ def test_health_and_dashboard(tmp_path: Path, monkeypatch):
     assert "公众号订阅" in data.decode("utf-8")
 
 
+def test_password_protects_admin_but_not_health_or_feeds(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("ADMIN_PASSWORD", "secret")
+    db = AppDB(tmp_path / "db.sqlite")
+    source = db.add_source(source_value="MP_WXS_123", name="公开 RSS")
+    creds = CredentialStore(tmp_path / "credentials.json")
+    service = SyncService(db, creds)
+    scheduler = Scheduler(db, service)
+    app = web_app.WebApp(db, creds, service, scheduler)
+
+    meta, _ = call_wsgi(app, "/")
+    assert meta["status"].startswith("401")
+    meta, _ = call_wsgi(app, "/api/health")
+    assert meta["status"].startswith("200")
+    meta, _ = call_wsgi(app, f"/feeds/{source.id}.xml")
+    assert meta["status"].startswith("200")
+
+
 def test_static_assets_and_security_headers(tmp_path: Path):
     db = AppDB(tmp_path / "db.sqlite")
     creds = CredentialStore(tmp_path / "credentials.json")

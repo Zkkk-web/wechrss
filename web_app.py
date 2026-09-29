@@ -233,13 +233,16 @@ class WebApp:
             return original_start_response(status, headers, exc_info)
 
         start_response = secure_start_response
-        if not self._authorized(environ):
+        path = environ.get("PATH_INFO", "/")
+        method = environ.get("REQUEST_METHOD", "GET").upper()
+        public_get = method == "GET" and (
+            path == "/api/health" or re.fullmatch(r"/feeds/\d+\.xml", path)
+        )
+        if not public_get and not self._authorized(environ):
             body = b"Authentication required"
             start_response("401 Unauthorized", [("WWW-Authenticate", 'Basic realm="wechat-mp-fetcher"'), ("Content-Length", str(len(body)))])
             return [body]
 
-        path = environ.get("PATH_INFO", "/")
-        method = environ.get("REQUEST_METHOD", "GET").upper()
         query = self._query(environ)
         try:
             if path in {"/static/app.css", "/static/app.js", "/static/favicon.svg"} and method == "GET":

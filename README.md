@@ -147,6 +147,8 @@ ADMIN_PASSWORD=换成足够强的密码
 
 管理用户名固定为 `admin`。敏感凭证保存在 `data/credentials.json`，该文件已被 Git 忽略，但仍应限制访问权限并安全备份。
 
+设置 `ADMIN_PASSWORD` 后，管理后台需要登录；RSS (`/feeds/*.xml`) 与健康检查 (`/api/health`) 保持只读公开，便于外部抓取器订阅。
+
 <a id="configuration"></a>
 
 ## ⚙️ 配置
